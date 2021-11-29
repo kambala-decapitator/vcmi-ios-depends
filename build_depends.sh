@@ -5,6 +5,7 @@ sdlImageVersion='168ceb577c245c91801c1bcaf970ef31c9b4d7ba'
 sdlMixerVersion='64120a41f62310a8be9bb97116e15a95a892e39d'
 sdlTtfVersion='393fdc91e6827905b75a6b267851c03f35914eab'
 boostVersion='1.76.0'
+tbbVersion='v2021.4.0'
 
 
 function ffmpegLibArchPath {
@@ -48,6 +49,8 @@ deviceSdk='iphoneos'
 simulatorSdk='iphonesimulator'
 deviceDir="$deviceSdk"
 simulatorDir="$simulatorSdk"
+makeThreads=$(sysctl -n hw.ncpu)
+repoRootDir="$(pwd)"
 
 mkdir -p "$buildDir"/{"$deviceDir","$simulatorDir"}/{include,lib}
 mkdir -p "$buildDir/src"
@@ -181,6 +184,45 @@ done
 for sdk in "$deviceSdk" "$simulatorSdk"; do
 	echo "copying Boost headers for $sdk"
 	rsync --archive "build/boost/$boostVersion/ios/release/prefix/include/" "$baseInstallDir/$sdk/include"
+done
+
+# TBB
+echo "Downloading TBB"
+tbbName=oneTBB
+tbbInstallPrefix="install-tbb"
+downloadGithubZip "https://github.com/oneapi-src/$tbbName/archive/refs/tags/$tbbVersion.tar.gz"
+for platform in OS64 SIMULATOR64 SIMULATORARM64; do
+	case $platform in
+	OS64)
+		tbbInstallDir="$baseInstallDir/$deviceDir"
+		;;
+	SIMULATOR64)
+		tbbInstallDir="$baseInstallDir/$simulatorDir"
+		;;
+	SIMULATORARM64)
+		tbbInstallDir="$tbbInstallPrefix-arm64-simulator"
+		;;
+	esac
+	tbbBuildDir="build-tbb-$platform"
+	echo -e "\nbuild TBB for platform $platform"
+	cmake -S "$tbbName-"* -B "$tbbBuildDir" \
+		-DTBB_TEST=OFF \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_TOOLCHAIN_FILE="$repoRootDir/ios-cmake/ios.toolchain.cmake" \
+		-DPLATFORM="$platform" \
+		-DDEPLOYMENT_TARGET=11.0 \
+		-DENABLE_BITCODE=1 \
+		-DENABLE_ARC=1 \
+		-DENABLE_VISIBILITY=1 \
+	&& cmake --build "$tbbBuildDir" -- -j$makeThreads \
+	&& cmake --install "$tbbBuildDir" --prefix "$tbbInstallDir" \
+			|| exit 1
+done
+
+echo 'Merge TBB simulator libs'
+for lib in $(find "$tbbInstallPrefix"*/lib -depth 1 -type f); do
+	installedLib="$baseInstallDir/$simulatorDir/lib/$(basename "$lib")"
+	lipo -create -output "$installedLib" "$installedLib" "$lib"
 done
 
 popd > /dev/null
