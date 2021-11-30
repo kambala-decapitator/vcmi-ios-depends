@@ -18,7 +18,7 @@ If you move the unpacked directory later, you also need to run the script.
 
 [Xcode](https://developer.apple.com/xcode/) is required to build the dependencies. The prebuilt package is created using Xcode 12.5.1 / iOS 14.5 SDK, but other versions should work as well.
 
-Make sure that `xcodebuild` command is avaiable. If it's not, use either of the following ways:
+Make sure that `xcodebuild` command is available. If it's not, use either of the following ways:
 
 - select an Xcode instance from Xcode application - Preferences - Locations - Command Line Tools
 - use `xcode-select` utility to set Xcode path: for example, `sudo xcode-select -s /Applications/Xcode.app`

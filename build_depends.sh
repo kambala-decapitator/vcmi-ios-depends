@@ -223,7 +223,7 @@ for platform in OS64 SIMULATOR64 SIMULATORARM64; do
 		-DENABLE_VISIBILITY=1 \
 	&& cmake --build "$tbbBuildDir" -- -j$makeThreads \
 	&& cmake --install "$tbbBuildDir" --prefix "$tbbInstallDir" \
-			|| exit 1
+		|| exit 1
 done
 
 echo 'Merge TBB simulator libs'
