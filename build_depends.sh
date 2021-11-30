@@ -8,6 +8,9 @@ boostVersion='1.76.0'
 tbbVersion='v2021.4.0'
 luaJitVersion='f3c856915b4ce7ccd24341e8ac73e8a9fd934171'
 
+mainDeploymentTarget='9.3'
+nullkillerDeploymentTarget='11.0'
+
 
 function ffmpegLibArchPath {
 	echo "prebuilt/apple-ios-$1-lts/ffmpeg"
@@ -77,6 +80,7 @@ declare -a simulatorArchs=( \
 SKIP_ffmpeg_kit=1 ./ios.sh \
 	--speed \
 	--lts \
+	--target="$mainDeploymentTarget" \
 	--disable-armv7s \
 	--disable-arm64-mac-catalyst \
 	--disable-arm64e \
@@ -139,6 +143,7 @@ for sdlLib in "$sdlName" "$sdlImageName" "$sdlMixerName" "$sdlTtfName"; do
 			-quiet \
 			EXCLUDED_ARCHS=i386 \
 			CONFIGURATION_BUILD_DIR="$installDir/lib" \
+			IPHONEOS_DEPLOYMENT_TARGET="$mainDeploymentTarget" \
 				|| exit 1
 		echo -e "\ncopying $sdlLib headers for $sdk"
 		rsync --archive $sdlLibDir/include/ $sdlLibDir/"$sdlLib.h" "$installDir/include/SDL2"
@@ -157,7 +162,7 @@ echo "Building Boost"
 $boostScript \
 	-ios \
 	--boost-version "$boostVersion" \
-	--min-ios-version '9.0' \
+	--min-ios-version "$mainDeploymentTarget" \
 	--boost-libs 'date_time filesystem locale program_options system thread' \
 	--no-framework \
 	--prefix "$baseInstallDir"
@@ -211,7 +216,7 @@ for platform in OS64 SIMULATOR64 SIMULATORARM64; do
 		-DCMAKE_BUILD_TYPE=Release \
 		-DCMAKE_TOOLCHAIN_FILE="$repoRootDir/ios-cmake/ios.toolchain.cmake" \
 		-DPLATFORM="$platform" \
-		-DDEPLOYMENT_TARGET=11.0 \
+		-DDEPLOYMENT_TARGET="$nullkillerDeploymentTarget" \
 		-DENABLE_BITCODE=1 \
 		-DENABLE_ARC=1 \
 		-DENABLE_VISIBILITY=1 \
@@ -254,7 +259,7 @@ for sdk in "$deviceSdk" "$simulatorSdk"; do
 			BUILDMODE=static \
 			DEFAULT_CC="$cCompiler" \
 			CROSS="$toolchainDir/" \
-			TARGET_FLAGS="-isysroot $sdkPath -target $arch-apple-ios11.0$targetSuffix -fembed-bitcode" \
+			TARGET_FLAGS="-isysroot $sdkPath -target $arch-apple-ios$nullkillerDeploymentTarget$targetSuffix -fembed-bitcode" \
 		&& $makeCommand install PREFIX="$installDir" \
 		&& $makeCommand clean \
 			|| exit 1
