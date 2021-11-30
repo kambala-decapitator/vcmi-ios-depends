@@ -141,6 +141,7 @@ for sdlLib in "$sdlName" "$sdlImageName" "$sdlMixerName" "$sdlTtfName"; do
 			-configuration 'Release' \
 			-sdk "$sdk" \
 			-quiet \
+			ENABLE_BITCODE=NO \
 			EXCLUDED_ARCHS=i386 \
 			CONFIGURATION_BUILD_DIR="$installDir/lib" \
 			IPHONEOS_DEPLOYMENT_TARGET="$mainDeploymentTarget" \
@@ -217,7 +218,7 @@ for platform in OS64 SIMULATOR64 SIMULATORARM64; do
 		-DCMAKE_TOOLCHAIN_FILE="$repoRootDir/ios-cmake/ios.toolchain.cmake" \
 		-DPLATFORM="$platform" \
 		-DDEPLOYMENT_TARGET="$nullkillerDeploymentTarget" \
-		-DENABLE_BITCODE=1 \
+		-DENABLE_BITCODE=0 \
 		-DENABLE_ARC=1 \
 		-DENABLE_VISIBILITY=1 \
 	&& cmake --build "$tbbBuildDir" -- -j$makeThreads \
@@ -259,7 +260,7 @@ for sdk in "$deviceSdk" "$simulatorSdk"; do
 			BUILDMODE=static \
 			DEFAULT_CC="$cCompiler" \
 			CROSS="$toolchainDir/" \
-			TARGET_FLAGS="-isysroot $sdkPath -target $arch-apple-ios$nullkillerDeploymentTarget$targetSuffix -fembed-bitcode" \
+			TARGET_FLAGS="-isysroot $sdkPath -target $arch-apple-ios$nullkillerDeploymentTarget$targetSuffix" \
 		&& $makeCommand install PREFIX="$installDir" \
 		&& $makeCommand clean \
 			|| exit 1
