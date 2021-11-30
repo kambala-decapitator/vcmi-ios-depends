@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+cd "$(dirname "$0")"
 for dir in iphoneos iphonesimulator; do
 	cmakeBaseDir="$dir/lib/cmake"
 	boostBaseDir="$cmakeBaseDir/boost_"
