@@ -6,6 +6,7 @@ sdlMixerVersion='64120a41f62310a8be9bb97116e15a95a892e39d'
 sdlTtfVersion='393fdc91e6827905b75a6b267851c03f35914eab'
 boostVersion='1.76.0'
 tbbVersion='v2021.4.0'
+luaJitVersion='f3c856915b4ce7ccd24341e8ac73e8a9fd934171'
 
 
 function ffmpegLibArchPath {
@@ -225,8 +226,49 @@ for lib in $(find "$tbbInstallPrefix"*/lib -depth 1 -type f); do
 	lipo -create -output "$installedLib" "$installedLib" "$lib"
 done
 
+# LuaJIT
+echo "Downloading LuaJIT"
+luajitName=LuaJIT
+downloadGithubZip "https://github.com/LuaJIT/$luajitName/archive/$luaJitVersion.zip"
+cCompiler=clang
+toolchainDir=$(dirname "$(xcrun --find "$cCompiler")")
+luajitInstallPrefix="install-$luajitName"
+for sdk in "$deviceSdk" "$simulatorSdk"; do
+	sdkPath=$(xcrun --sdk "$sdk" --show-sdk-path)
+	if [[ "$sdk" == "$deviceSdk" ]]; then
+		archs='arm64'
+		targetSuffix=
+	else
+		archs='x86_64 arm64'
+		targetSuffix='-simulator'
+	fi
+	for arch in $archs; do
+		echo -e "\nbuild $luajitName for $sdk-$arch"
+		if [[ "$arch" == arm64 ]]; then
+			installDir="$baseInstallDir/$sdk"
+		else
+			installDir="$(pwd)/$luajitInstallPrefix-$sdk-$arch"
+		fi
+		makeCommand="make -C $luajitName-* -j$makeThreads TARGET_SYS=iOS"
+		$makeCommand \
+			BUILDMODE=static \
+			DEFAULT_CC="$cCompiler" \
+			CROSS="$toolchainDir/" \
+			TARGET_FLAGS="-isysroot $sdkPath -target $arch-apple-ios11.0$targetSuffix -fembed-bitcode" \
+		&& $makeCommand install PREFIX="$installDir" \
+		&& $makeCommand clean \
+			|| exit 1
+	done
+done
+
+echo -e "\nMerge $luajitName simulator libs"
+for lib in $(find "$luajitInstallPrefix"*/lib -depth 1 -type f); do
+	installedLib="$baseInstallDir/$simulatorDir/lib/$(basename "$lib")"
+	lipo -create -output "$installedLib" "$installedLib" "$lib"
+done
+
 popd > /dev/null
 
-echo 'deleting build directory'
-rm -rf "$buildDir/src"
+echo -e "\ncleanup"
+rm -rf "$buildDir/src" "$buildDir"/{"$deviceDir","$simulatorDir"}/bin
 echo 'done'
