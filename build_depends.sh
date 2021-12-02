@@ -184,7 +184,10 @@ for buildTarget in iphone iphonesim; do
 	# fix install path
 	echo "fixing Boost install path: $boostStageDir => $libInstallDir"
 	for boostDir in "$libInstallDir"/cmake/boost_*-"$boostVersion"; do
-		sed -i '' "s|$boostStageDir|$libInstallDir|g" $boostDir/*.cmake
+		sed -i '' \
+			-e "s|$boostStageDir|$libInstallDir|g" \
+			-e 's|_BOOST_INCLUDEDIR "${_BOOST_CMAKEDIR}/../../../../"|_BOOST_INCLUDEDIR "${_BOOST_CMAKEDIR}/../../include/"|' \
+			$boostDir/*.cmake
 	done
 done
 
