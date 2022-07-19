@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 
-sdlVersion='dd2f91118e8a44194c21d4cc38ffceb0c7055044'
-sdlImageVersion='168ceb577c245c91801c1bcaf970ef31c9b4d7ba'
-sdlMixerVersion='64120a41f62310a8be9bb97116e15a95a892e39d'
-sdlTtfVersion='393fdc91e6827905b75a6b267851c03f35914eab'
-boostVersion='1.76.0'
-tbbVersion='v2021.4.0'
-luaJitVersion='f3c856915b4ce7ccd24341e8ac73e8a9fd934171'
+sdlVersion='2.0.22'
+sdlImageVersion='2.6.0'
+sdlMixerVersion='64120a41f62310a8be9bb97116e15a95a892e39d' # 2.6.1 results in infinite recursion in VCMI
+sdlTtfVersion='2.20.0'
+boostVersion='1.79.0'
+tbbVersion='2021.5.0'
+luaJitVersion='50936d784474747b4569d988767f1b5bab8bb6d0'
 
 mainDeploymentTarget='9.3'
 nullkillerDeploymentTarget='11.0'
+
+sdlPrefix=SDL2
 
 
 function ffmpegLibArchPath {
@@ -37,8 +39,9 @@ function downloadGithubZip {
 }
 
 function downloadSdlLib {
-	echo "Downloading library $1 version $2"
-	downloadGithubZip "https://github.com/libsdl-org/$1/archive/$2.zip"
+	sdlLib="${sdlPrefix}$1"
+	echo "Downloading library $sdlLib version $2"
+	downloadGithubZip "https://github.com/libsdl-org/SDL$1/releases/download/release-$2/$sdlLib-$2.tar.gz"
 }
 
 
@@ -101,34 +104,47 @@ echo
 popd > /dev/null
 
 # SDL
-sdlName='SDL'
-sdlImageName='SDL_image'
-sdlMixerName='SDL_mixer'
-sdlTtfName='SDL_ttf'
+sdlSuffix=''
+sdlImageSuffix='_image'
+sdlMixerSuffix='_mixer'
+sdlTtfSuffix='_ttf'
 
-downloadSdlLib "$sdlName" "$sdlVersion"
-downloadSdlLib "$sdlImageName" "$sdlImageVersion"
-downloadSdlLib "$sdlMixerName" "$sdlMixerVersion"
-downloadSdlLib "$sdlTtfName" "$sdlTtfVersion"
+downloadSdlLib "$sdlSuffix" "$sdlVersion"
+downloadSdlLib "$sdlImageSuffix" "$sdlImageVersion"
+downloadSdlLib "$sdlTtfSuffix" "$sdlTtfVersion"
 
-# other SDL libraries need SDL headers that are expected to be in 'SDL' directory
-ln -s "$sdlName"-* "$sdlName"
+# mixer is locked to commit instead of release
+sdlMixerLib="SDL$sdlMixerSuffix"
+downloadGithubZip "https://github.com/libsdl-org/$sdlMixerLib/archive/$sdlMixerVersion.zip"
+# SDL headers are expected to be in a sibling 'SDL' directory
+ln -s "$sdlPrefix"-* SDL
 
-# make SDL-TTF's directory layout compatible with other SDL libs
-pushd "$sdlTtfName-$sdlTtfVersion" > /dev/null
-ln -s 'Xcode' 'Xcode-iOS'
-popd > /dev/null
+# fix linking section of SDL_image: linking to ApplicationServices.framework must be done only on macOS
+# this essentially appends `platformFilters = (macos, );` to `/* ApplicationServices.framework */;` that has no filters
+sed -i '' \
+	-e 's|/\* ApplicationServices\.framework \*/; };|/* ApplicationServices.framework */; platformFilters = (macos, ); };|' \
+	"${sdlPrefix}$sdlImageSuffix"-*/Xcode/*.xcodeproj/project.pbxproj
 
-for sdlLib in "$sdlName" "$sdlImageName" "$sdlMixerName" "$sdlTtfName"; do
-	if [[ "$sdlLib" == "$sdlName" ]]; then
+for suffix in "$sdlSuffix" "$sdlImageSuffix" "$sdlMixerSuffix" "$sdlTtfSuffix"; do
+	case $suffix in
+	"$sdlSuffix")
 		xcodeProjectDir='Xcode/SDL'
-	else
-		xcodeProjectDir='Xcode-iOS'
-	fi
-	if [[ "$sdlLib" == "$sdlName" || "$sdlLib" == "$sdlTtfName" ]]; then
 		xcodeTarget='Static Library-iOS'
+		;;
+	"$sdlMixerSuffix")
+		xcodeProjectDir='Xcode-iOS'
+		xcodeTarget="lib$sdlMixerLib-iOS"
+		;;
+	*)
+		xcodeProjectDir='Xcode'
+		xcodeTarget='Static Library'
+		;;
+	esac
+
+	if [[ "$suffix" == "$sdlMixerSuffix" ]]; then
+		sdlLib="$sdlMixerLib"
 	else
-		xcodeTarget="lib$sdlLib-iOS"
+		sdlLib="${sdlPrefix}$suffix"
 	fi
 
 	sdlLibDir="$sdlLib"-*
@@ -145,9 +161,10 @@ for sdlLib in "$sdlName" "$sdlImageName" "$sdlMixerName" "$sdlTtfName"; do
 			EXCLUDED_ARCHS=i386 \
 			CONFIGURATION_BUILD_DIR="$installDir/lib" \
 			IPHONEOS_DEPLOYMENT_TARGET="$mainDeploymentTarget" \
+			PLATFORM=iOS \
 				|| exit 1
 		echo -e "\ncopying $sdlLib headers for $sdk"
-		rsync --archive $sdlLibDir/include/ $sdlLibDir/"$sdlLib.h" "$installDir/include/SDL2"
+		rsync --archive $sdlLibDir/include/ $sdlLibDir/"SDL$suffix.h" "$installDir/include/SDL2"
 		echo
 	done
 done
@@ -156,7 +173,9 @@ done
 echo "Downloading Boost build script"
 boostRepoName='Apple-Boost-BuildScript'
 downloadGithubZip "https://github.com/kambala-decapitator/$boostRepoName/archive/refs/heads/all-improvements-from-PRs.zip"
-boostScript="$boostRepoName"-*/boost.sh
+
+pushd "$boostRepoName"-* > /dev/null
+boostScript=./boost.sh
 chmod +x $boostScript
 
 echo "Building Boost"
@@ -166,6 +185,7 @@ $boostScript \
 	--min-ios-version "$mainDeploymentTarget" \
 	--boost-libs 'date_time filesystem locale program_options system thread' \
 	--no-framework \
+	--no-thinning \
 	--prefix "$baseInstallDir"
 
 for buildTarget in iphone iphonesim; do
@@ -190,17 +210,13 @@ for buildTarget in iphone iphonesim; do
 			$boostDir/*.cmake
 	done
 done
-
-for sdk in "$deviceSdk" "$simulatorSdk"; do
-	echo "copying Boost headers for $sdk"
-	rsync --archive "build/boost/$boostVersion/ios/release/prefix/include/" "$baseInstallDir/$sdk/include"
-done
+popd > /dev/null
 
 # TBB
 echo "Downloading TBB"
 tbbName=oneTBB
 tbbInstallPrefix="install-tbb"
-downloadGithubZip "https://github.com/oneapi-src/$tbbName/archive/refs/tags/$tbbVersion.tar.gz"
+downloadGithubZip "https://github.com/oneapi-src/$tbbName/archive/refs/tags/v$tbbVersion.tar.gz"
 for platform in OS64 SIMULATOR64 SIMULATORARM64; do
 	case $platform in
 	OS64)
@@ -221,9 +237,9 @@ for platform in OS64 SIMULATOR64 SIMULATORARM64; do
 		-DCMAKE_TOOLCHAIN_FILE="$repoRootDir/ios-cmake/ios.toolchain.cmake" \
 		-DPLATFORM="$platform" \
 		-DDEPLOYMENT_TARGET="$nullkillerDeploymentTarget" \
-		-DENABLE_BITCODE=0 \
-		-DENABLE_ARC=1 \
-		-DENABLE_VISIBILITY=1 \
+		-DENABLE_BITCODE=OFF \
+		-DENABLE_ARC=ON \
+		-DENABLE_VISIBILITY=ON \
 	&& cmake --build "$tbbBuildDir" -- -j$makeThreads \
 	&& cmake --install "$tbbBuildDir" --prefix "$tbbInstallDir" \
 		|| exit 1
