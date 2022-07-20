@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+ffmpegVersion='ffmpeg-4.4.2'
 sdlVersion='2.0.22'
 sdlImageVersion='2.6.0'
 sdlMixerVersion='64120a41f62310a8be9bb97116e15a95a892e39d' # 2.6.1 results in infinite recursion in VCMI
@@ -69,7 +70,7 @@ baseInstallDir=$(cd "$currentDir/.." ; pwd)
 # FFmpeg
 echo 'cloning FFmpeg build script'
 ffmpegKitName='ffmpeg-kit'
-git clone --depth 1 --branch 'ffmpeg-release' "https://github.com/kambala-decapitator/$ffmpegKitName.git"
+git clone --depth 1 --branch "$ffmpegVersion" "https://github.com/kambala-decapitator/$ffmpegKitName.git"
 
 pushd "$ffmpegKitName" > /dev/null
 declare -a deviceArchs=( \
