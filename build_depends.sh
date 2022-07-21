@@ -2,7 +2,7 @@
 
 ffmpegVersion='ffmpeg-4.4.2'
 sdlVersion='2.0.22'
-sdlImageVersion='2.6.0'
+sdlImageVersion='2.0.5'
 sdlMixerVersion='64120a41f62310a8be9bb97116e15a95a892e39d' # 2.6.1 results in infinite recursion in VCMI
 sdlTtfVersion='2.20.0'
 boostVersion='1.79.0'
@@ -11,9 +11,6 @@ luaJitVersion='50936d784474747b4569d988767f1b5bab8bb6d0'
 
 mainDeploymentTarget='9.3'
 nullkillerDeploymentTarget='11.0'
-
-sdlPrefix=SDL2
-
 
 function ffmpegLibArchPath {
 	echo "prebuilt/apple-ios-$1-lts/ffmpeg"
@@ -40,9 +37,13 @@ function downloadGithubZip {
 }
 
 function downloadSdlLib {
-	sdlLib="${sdlPrefix}$1"
-	echo "Downloading library $sdlLib version $2"
-	downloadGithubZip "https://github.com/libsdl-org/SDL$1/releases/download/release-$2/$sdlLib-$2.tar.gz"
+	echo "Downloading library $1 version $2"
+	if [[ "$3" == 'commit' ]]; then
+		downloadPath="$2.zip"
+	else
+		downloadPath="refs/tags/release-$2.tar.gz"
+	fi
+	downloadGithubZip "https://github.com/libsdl-org/$1/archive/$downloadPath"
 }
 
 
@@ -115,52 +116,42 @@ echo
 popd > /dev/null
 
 # SDL
-sdlSuffix=''
-sdlImageSuffix='_image'
-sdlMixerSuffix='_mixer'
-sdlTtfSuffix='_ttf'
+sdlName='SDL'
+sdlImageName='SDL_image'
+sdlMixerName='SDL_mixer'
+sdlTtfName='SDL_ttf'
 
-downloadSdlLib "$sdlSuffix" "$sdlVersion"
-downloadSdlLib "$sdlImageSuffix" "$sdlImageVersion"
-downloadSdlLib "$sdlTtfSuffix" "$sdlTtfVersion"
+downloadSdlLib "$sdlName" "$sdlVersion"
+downloadSdlLib "$sdlImageName" "$sdlImageVersion"
+downloadSdlLib "$sdlMixerName" "$sdlMixerVersion" commit
 
-# mixer is locked to commit instead of release
-sdlMixerLib="SDL$sdlMixerSuffix"
-downloadGithubZip "https://github.com/libsdl-org/$sdlMixerLib/archive/$sdlMixerVersion.zip"
-# SDL headers are expected to be in a sibling 'SDL' directory
-ln -s "$sdlPrefix"-* SDL
+# SDL_ttf source is downloaded from release assets rather than simple tag to have dependencies included
+sdlTtfDirName=${sdlTtfName/SDL/SDL2}
+downloadGithubZip "https://github.com/libsdl-org/$sdlTtfName/releases/download/release-$sdlTtfVersion/$sdlTtfDirName-$sdlTtfVersion.tar.gz"
+ln -s "$sdlTtfDirName"-* "$sdlTtfName-$sdlTtfVersion"
 
-# fix linking section of SDL_image: linking to ApplicationServices.framework must be done only on macOS
-# this essentially appends `platformFilters = (macos, );` to `/* ApplicationServices.framework */;` that has no filters
-sed -i '' \
-	-e 's|/\* ApplicationServices\.framework \*/; };|/* ApplicationServices.framework */; platformFilters = (macos, ); };|' \
-	"${sdlPrefix}$sdlImageSuffix"-*/Xcode/*.xcodeproj/project.pbxproj
+# other SDL libraries need SDL headers that are expected to be in 'SDL' directory
+ln -s "$sdlName"-* "$sdlName"
 
 # search for SDL headers in the symlinked dir
 sdlXcconfig=$(mktemp)
-echo "HEADER_SEARCH_PATHS = $(pwd)/SDL/include \$(inherited)" > "$sdlXcconfig"
+echo "HEADER_SEARCH_PATHS = $(pwd)/$sdlName/include \$(inherited)" > "$sdlXcconfig"
 
-for suffix in "$sdlSuffix" "$sdlImageSuffix" "$sdlMixerSuffix" "$sdlTtfSuffix"; do
-	case $suffix in
-	"$sdlSuffix")
+for sdlLib in "$sdlName" "$sdlImageName" "$sdlMixerName" "$sdlTtfName"; do
+	case $sdlLib in
+	"$sdlName")
 		xcodeProjectDir='Xcode/SDL'
 		xcodeTarget='Static Library-iOS'
 		;;
-	"$sdlMixerSuffix")
-		xcodeProjectDir='Xcode-iOS'
-		xcodeTarget="lib$sdlMixerLib-iOS"
-		;;
-	*)
+	"$sdlTtfName")
 		xcodeProjectDir='Xcode'
 		xcodeTarget='Static Library'
 		;;
+	*)
+		xcodeProjectDir='Xcode-iOS'
+		xcodeTarget="lib$sdlLib-iOS"
+		;;
 	esac
-
-	if [[ "$suffix" == "$sdlMixerSuffix" ]]; then
-		sdlLib="$sdlMixerLib"
-	else
-		sdlLib="${sdlPrefix}$suffix"
-	fi
 
 	sdlLibDir="$sdlLib"-*
 	for sdk in "$deviceSdk" "$simulatorSdk"; do
@@ -189,7 +180,7 @@ for suffix in "$sdlSuffix" "$sdlImageSuffix" "$sdlMixerSuffix" "$sdlTtfSuffix"; 
 			PLATFORM=iOS \
 				|| exit 1
 		echo -e "\ncopying $sdlLib headers for $sdk"
-		rsync --archive $sdlLibDir/include/ $sdlLibDir/"SDL$suffix.h" "$installDir/include/SDL2"
+		rsync --archive $sdlLibDir/include/ $sdlLibDir/"$sdlLib.h" "$installDir/include/SDL2"
 		echo
 	done
 done
