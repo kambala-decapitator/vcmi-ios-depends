@@ -90,14 +90,16 @@ declare -a simulatorArchs=( \
 )
 if [[ $armSimulatorEnabled ]]; then
 	simulatorArchs[1]=arm64-simulator
+else
+	disableArmSimulatorOption=--disable-arm64-simulator
 fi
 SKIP_ffmpeg_kit=1 ./ios.sh \
 	--speed \
 	--lts \
 	--target="$mainDeploymentTarget" \
+	$disableArmSimulatorOption \
 	--disable-armv7s \
 	--disable-arm64-mac-catalyst \
-	${armSimulatorEnabled:- --disable-arm64-simulator} \
 	--disable-arm64e \
 	--disable-i386 \
 	--disable-x86-64-mac-catalyst \
