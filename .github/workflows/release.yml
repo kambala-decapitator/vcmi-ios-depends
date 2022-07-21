@@ -1,11 +1,9 @@
 name: Release binaries
-on:
-  workflow_dispatch:
-    inputs:
-      newVersion:
-        type: string
-        description: 'Release version'
-        required: true
+on: 
+  push:
+    tags:
+    - '*'
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
