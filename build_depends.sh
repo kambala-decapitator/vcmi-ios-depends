@@ -52,6 +52,13 @@ if ! xcrun --find xcodebuild ; then
 	exit 1
 fi
 
+xcodeVersion=$(xcodebuild -version | head -1 | awk '{print $2}')
+xcodeMajorVersion=${xcodeVersion%%.*}
+
+if [[ $xcodeMajorVersion -ge 12 ]]; then
+	armSimulatorEnabled=1
+fi
+
 buildDir='build'
 deviceSdk='iphoneos'
 simulatorSdk='iphonesimulator'
@@ -78,15 +85,18 @@ declare -a deviceArchs=( \
 	armv7 \
 )
 declare -a simulatorArchs=( \
-	arm64-simulator \
 	x86_64 \
 )
+if [[ $armSimulatorEnabled ]]; then
+	simulatorArchs[1]=arm64-simulator
+fi
 SKIP_ffmpeg_kit=1 ./ios.sh \
 	--speed \
 	--lts \
 	--target="$mainDeploymentTarget" \
 	--disable-armv7s \
 	--disable-arm64-mac-catalyst \
+	${armSimulatorEnabled:- --disable-arm64-simulator} \
 	--disable-arm64e \
 	--disable-i386 \
 	--disable-x86-64-mac-catalyst \
@@ -126,6 +136,10 @@ sed -i '' \
 	-e 's|/\* ApplicationServices\.framework \*/; };|/* ApplicationServices.framework */; platformFilters = (macos, ); };|' \
 	"${sdlPrefix}$sdlImageSuffix"-*/Xcode/*.xcodeproj/project.pbxproj
 
+# search for SDL headers in the symlinked dir
+sdlXcconfig=$(mktemp)
+echo "HEADER_SEARCH_PATHS = $(pwd)/SDL/include \$(inherited)" > "$sdlXcconfig"
+
 for suffix in "$sdlSuffix" "$sdlImageSuffix" "$sdlMixerSuffix" "$sdlTtfSuffix"; do
 	case $suffix in
 	"$sdlSuffix")
@@ -150,6 +164,15 @@ for suffix in "$sdlSuffix" "$sdlImageSuffix" "$sdlMixerSuffix" "$sdlTtfSuffix"; 
 
 	sdlLibDir="$sdlLib"-*
 	for sdk in "$deviceSdk" "$simulatorSdk"; do
+		if [[ "$sdk" == "$simulatorSdk" ]]; then
+			excludedArchs='i386'
+			if [[ -z "$armSimulatorEnabled" ]]; then
+				excludedArchs+=' arm64'
+			fi
+		else
+			excludedArchs=
+		fi
+
 		echo "building $sdlLib for $sdk"
 		installDir="$baseInstallDir/$sdk"
 		xcodebuild \
@@ -157,9 +180,10 @@ for suffix in "$sdlSuffix" "$sdlImageSuffix" "$sdlMixerSuffix" "$sdlTtfSuffix"; 
 			-target "$xcodeTarget" \
 			-configuration 'Release' \
 			-sdk "$sdk" \
+			-xcconfig "$sdlXcconfig" \
 			-quiet \
 			ENABLE_BITCODE=NO \
-			EXCLUDED_ARCHS=i386 \
+			"EXCLUDED_ARCHS=$excludedArchs" \
 			CONFIGURATION_BUILD_DIR="$installDir/lib" \
 			IPHONEOS_DEPLOYMENT_TARGET="$mainDeploymentTarget" \
 			PLATFORM=iOS \
@@ -169,6 +193,7 @@ for suffix in "$sdlSuffix" "$sdlImageSuffix" "$sdlMixerSuffix" "$sdlTtfSuffix"; 
 		echo
 	done
 done
+rm -f "$sdlXcconfig"
 
 # Boost
 echo "Downloading Boost build script"
@@ -218,7 +243,12 @@ echo "Downloading TBB"
 tbbName=oneTBB
 tbbInstallPrefix="install-tbb"
 downloadGithubZip "https://github.com/oneapi-src/$tbbName/archive/refs/tags/v$tbbVersion.tar.gz"
-for platform in OS64 SIMULATOR64 SIMULATORARM64; do
+
+tbbPlatforms='OS64 SIMULATOR64'
+if [[ $armSimulatorEnabled ]]; then
+	tbbPlatforms+=' SIMULATORARM64'
+fi
+for platform in $tbbPlatforms ; do
 	case $platform in
 	OS64)
 		tbbInstallDir="$baseInstallDir/$deviceDir"
@@ -265,7 +295,10 @@ for sdk in "$deviceSdk" "$simulatorSdk"; do
 		archs='arm64'
 		targetSuffix=
 	else
-		archs='x86_64 arm64'
+		archs='x86_64'
+		if [[ $armSimulatorEnabled ]]; then
+			archs+=' arm64'
+		fi
 		targetSuffix='-simulator'
 	fi
 	for arch in $archs; do
