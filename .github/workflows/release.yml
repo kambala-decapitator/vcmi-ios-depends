@@ -53,6 +53,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           path: ${{ steps.depends.outputs.dependsArchive }}
+          name: xcode${{ matrix.xcode }}
           retention-days: 7
       - name: Upload archive to the draft release
         run: |
