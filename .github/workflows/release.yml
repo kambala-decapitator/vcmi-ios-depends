@@ -5,7 +5,18 @@ on:
     - '*'
 
 jobs:
+  draftRelease:
+    runs-on: ubuntu-latest
+    outputs:
+      ghUploadURL: ${{ steps.ghRelease.outputs.upload_url }}
+    steps:
+      - uses: ncipollo/release-action@v1
+        id: ghRelease
+        with:
+          draft: true
+
   build:
+    needs: draftRelease
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -18,15 +29,39 @@ jobs:
             xcode: 11.3.1
     env:
       DEVELOPER_DIR: /Applications/Xcode_${{ matrix.xcode }}.app
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: Build dependencies
-        run: ./build_depends.sh
+        id: depends
+        run: |
+          ./build_depends.sh || exit 1
+          ./archive_depends.sh .
+          echo "::set-output name=dependsArchive::$(ls *.txz)"
+      - name: Save artifact
+        uses: actions/upload-artifact@v3
+        with:
+          path: ${{ steps.depends.outputs.dependsArchive }}
+          retention-days: 7
+      - name: Upload archive to the draft release
+        run: |
+          dependsArchive='${{ steps.depends.outputs.dependsArchive }}'
+          uploadURL=$(sed "s/{?name,label}/?name=$dependsArchive/" <<<'${{ needs.draftRelease.outputs.ghUploadURL }}')
+          curl "$uploadURL" \
+            -d @"$dependsArchive" \
+            -H 'Content-Type: application/octet-stream' \
+            -H 'Authorization: token ${{ github.token }}'
 
-  release:
-    runs-on: macos-11
+  publishRelease:
+    runs-on: ubuntu-latest
     needs: build
     steps:
-      - run: echo release version ${{ inputs.newVersion }} 
+      - uses: ncipollo/release-action@v1
+        name: Publish release
+        with:
+          allowUpdates: true
+          draft: false
