@@ -59,7 +59,7 @@ jobs:
           dependsArchive='${{ steps.depends.outputs.dependsArchive }}'
           uploadURL=$(sed "s/{?name,label}/?name=$dependsArchive/" <<<'${{ needs.draftRelease.outputs.ghUploadURL }}')
           curl "$uploadURL" \
-            -d @"$dependsArchive" \
+            --data-binary @"$dependsArchive" \
             -H 'Content-Type: application/octet-stream' \
             -H 'Authorization: token ${{ github.token }}'
 
