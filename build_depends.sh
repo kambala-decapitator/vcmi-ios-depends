@@ -53,7 +53,7 @@ if ! xcrun --find xcodebuild ; then
 	exit 1
 fi
 
-xcodeVersion=$(xcodebuild -version | head -1 | awk '{print $2}')
+xcodeVersion=$(./xcode_version.sh)
 xcodeMajorVersion=${xcodeVersion%%.*}
 
 if [[ $xcodeMajorVersion -ge 12 ]]; then

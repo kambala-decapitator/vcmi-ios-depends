@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-tar --create --xz --file ~/Desktop/vcmi-ios-depends-xc12.5.1.txz build
+tar --create --xz --file "$1/vcmi-ios-depends-xc$(./xcode_version.sh).txz" build
