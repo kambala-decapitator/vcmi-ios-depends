@@ -18,7 +18,7 @@ The prebuilt packages are created with GitHub Actions.
 
 ## Building from source
 
-[Xcode](https://developer.apple.com/xcode/) is required to build the dependencies. Build has been tested with the following Xcode versions: 13.4.1, 13.2.1, 12.5.1, 12.4, 11.3.1. Note that 11.3.1 is currently unable to build Boost for simulator (but you should be interested in device build anyway :) ).
+[Xcode](https://developer.apple.com/xcode/) is required to build the dependencies. Build has been tested with the following Xcode versions: 13.4.1, 13.2.1, 12.5.1, 12.4, 11.3.1.
 
 Make sure that `xcodebuild` command is available. If it's not, use either of the following ways:
 
