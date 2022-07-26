@@ -200,6 +200,7 @@ chmod +x $boostScript
 echo "Building Boost"
 $boostScript \
 	-ios \
+	--shared \
 	--boost-version "$boostVersion" \
 	--min-ios-version "$mainDeploymentTarget" \
 	--boost-libs 'date_time filesystem locale program_options system thread' \
@@ -215,10 +216,6 @@ for buildTarget in iphone iphonesim; do
 	fi
 	libInstallDir="$baseInstallDir/$sdk/lib"
 	boostStageDir=$(cd src/boost_*/"$buildTarget"-build/stage/lib ; pwd)
-
-	echo "copying Boost libs for $sdk"
-	rsync --archive "$boostStageDir/" "$libInstallDir"
-	echo
 
 	# fix install path
 	echo "fixing Boost install path: $boostStageDir => $libInstallDir"
