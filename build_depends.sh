@@ -304,7 +304,7 @@ for sdk in "$deviceSdk" "$simulatorSdk"; do
 			BUILDMODE=static \
 			DEFAULT_CC="$cCompiler" \
 			CROSS="$toolchainDir/" \
-			TARGET_FLAGS="-isysroot $sdkPath -target $arch-apple-ios$nullkillerDeploymentTarget$targetSuffix" \
+			TARGET_FLAGS="-isysroot '$sdkPath' -target $arch-apple-ios$nullkillerDeploymentTarget$targetSuffix" \
 		&& $makeCommand install PREFIX="$installDir" \
 		&& $makeCommand clean \
 			|| exit 1
