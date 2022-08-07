@@ -9,8 +9,7 @@ boostVersion='1.79.0'
 tbbVersion='2021.5.0'
 luaJitVersion='50936d784474747b4569d988767f1b5bab8bb6d0'
 
-mainDeploymentTarget='9.3'
-nullkillerDeploymentTarget='11.0'
+mainDeploymentTarget='10.0'
 
 function ffmpegLibArchPath {
 	echo "prebuilt/apple-ios-$1-lts/ffmpeg"
@@ -258,7 +257,7 @@ for platform in $tbbPlatforms ; do
 		-DCMAKE_BUILD_TYPE=Release \
 		-DCMAKE_TOOLCHAIN_FILE="$repoRootDir/ios-cmake/ios.toolchain.cmake" \
 		-DPLATFORM="$platform" \
-		-DDEPLOYMENT_TARGET="$nullkillerDeploymentTarget" \
+		-DDEPLOYMENT_TARGET="$mainDeploymentTarget" \
 		-DENABLE_BITCODE=OFF \
 		-DENABLE_ARC=ON \
 		-DENABLE_VISIBILITY=ON \
@@ -304,7 +303,7 @@ for sdk in "$deviceSdk" "$simulatorSdk"; do
 			BUILDMODE=static \
 			DEFAULT_CC="$cCompiler" \
 			CROSS="$toolchainDir/" \
-			TARGET_FLAGS="-isysroot '$sdkPath' -target $arch-apple-ios$nullkillerDeploymentTarget$targetSuffix" \
+			TARGET_FLAGS="-isysroot '$sdkPath' -target $arch-apple-ios$mainDeploymentTarget$targetSuffix" \
 		&& $makeCommand install PREFIX="$installDir" \
 		&& $makeCommand clean \
 			|| exit 1
