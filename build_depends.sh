@@ -254,6 +254,7 @@ for platform in $tbbPlatforms ; do
 	echo -e "\nbuild TBB for platform $platform"
 	cmake -S "$tbbName-"* -B "$tbbBuildDir" \
 		-DTBB_TEST=OFF \
+		-DTBBMALLOC_BUILD=OFF \
 		-DCMAKE_BUILD_TYPE=Release \
 		-DCMAKE_TOOLCHAIN_FILE="$repoRootDir/ios-cmake/ios.toolchain.cmake" \
 		-DPLATFORM="$platform" \
