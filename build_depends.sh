@@ -6,6 +6,7 @@ sdlImageVersion='2.0.5'
 sdlMixerVersion='64120a41f62310a8be9bb97116e15a95a892e39d' # 2.6.1 results in infinite recursion in VCMI
 sdlTtfVersion='2.20.0'
 boostVersion='1.79.0'
+qtVersion='5.15.5'
 tbbVersion='2021.5.0'
 luaJitVersion='50936d784474747b4569d988767f1b5bab8bb6d0'
 
@@ -30,7 +31,7 @@ function mergeFFmpegLibs {
 	done
 }
 
-function downloadGithubZip {
+function downloadArchive {
 	curl -L "$1" | tar -xf -
 	echo
 }
@@ -42,7 +43,7 @@ function downloadSdlLib {
 	else
 		downloadPath="refs/tags/release-$2.tar.gz"
 	fi
-	downloadGithubZip "https://github.com/libsdl-org/$1/archive/$downloadPath"
+	downloadArchive "https://github.com/libsdl-org/$1/archive/$downloadPath"
 }
 
 
@@ -128,7 +129,7 @@ downloadSdlLib "$sdlMixerName" "$sdlMixerVersion" commit
 
 # SDL_ttf source is downloaded from release assets rather than simple tag to have dependencies included
 sdlTtfDirName=${sdlTtfName/SDL/SDL2}
-downloadGithubZip "https://github.com/libsdl-org/$sdlTtfName/releases/download/release-$sdlTtfVersion/$sdlTtfDirName-$sdlTtfVersion.tar.gz"
+downloadArchive "https://github.com/libsdl-org/$sdlTtfName/releases/download/release-$sdlTtfVersion/$sdlTtfDirName-$sdlTtfVersion.tar.gz"
 ln -s "$sdlTtfDirName"-* "$sdlTtfName-$sdlTtfVersion"
 
 # other SDL libraries need SDL headers that are expected to be in 'SDL' directory
@@ -190,7 +191,7 @@ rm -f "$sdlXcconfig"
 # Boost
 echo "Downloading Boost build script"
 boostRepoName='Apple-Boost-BuildScript'
-downloadGithubZip "https://github.com/kambala-decapitator/$boostRepoName/archive/refs/heads/all-improvements-from-PRs.zip"
+downloadArchive "https://github.com/kambala-decapitator/$boostRepoName/archive/refs/heads/all-improvements-from-PRs.zip"
 
 pushd "$boostRepoName"-* > /dev/null
 boostScript=./boost.sh
@@ -227,11 +228,82 @@ for buildTarget in iphone iphonesim; do
 done
 popd > /dev/null
 
+# Qt
+echo "Downloading Qt"
+qtVersionMajorMinor=${qtVersion%.*}
+downloadArchive "https://download.qt.io/official_releases/qt/$qtVersionMajorMinor/$qtVersion/submodules/qtbase-everywhere-opensource-src-$qtVersion.tar.xz"
+
+echo "Downloading Qt patches"
+qtPatchesRepo='Qt5-iOS-patches'
+qtPatchesRepoDir='5.15.5'
+
+git clone --no-checkout --depth 1 --sparse "https://github.com/kambala-decapitator/$qtPatchesRepo.git"
+cd "$qtPatchesRepo"
+git sparse-checkout add "/$qtPatchesRepoDir/*"
+git checkout
+cd ..
+
+mkdir qt-build
+ln -s qtbase-* qtbase
+
+echo -e "\nApplying Qt patches"
+for p in ios10 qmake ; do
+  patch -p1 < "$qtPatchesRepo/$qtPatchesRepoDir/$p.patch"
+done
+
+cd qtbase
+for p in "../$qtPatchesRepo/$qtPatchesRepoDir/kde-patches"/* ; do
+  patch -p1 < "$p"
+done
+cd ../qt-build
+
+qtConfigure="../qtbase/configure \
+-opensource \
+-confirm-license \
+-release \
+-strip \
+-static \
+-xplatform macx-ios-clang \
+-make libs \
+-no-compile-examples \
+-no-dbus \
+-system-zlib \
+-no-openssl \
+-no-freetype \
+-no-harfbuzz \
+-no-gif \
+-no-ico \
+-system-sqlite"
+
+for sdk in "$deviceSdk" "$simulatorSdk"; do
+	echo -e "\nBuilding Qt for $sdk"
+	$qtConfigure -prefix "$baseInstallDir/$sdk" -sdk "$sdk"
+	make --silent -j$makeThreads install || exit 1
+	# remove everything but qmake as it makes no sense to rebuild it
+	find . -depth 1 ! -name bin ! -name qmake -exec rm -rf {} +
+	find bin -type f ! -name qmake -exec rm -rf {} +
+done
+
+if [[ $armSimulatorEnabled ]]; then
+	echo -e "\nBuilding Qt for $simulatorSdk arm64"
+	sed -i '' \
+		's/QMAKE_APPLE_SIMULATOR_ARCHS = x86_64/QMAKE_APPLE_SIMULATOR_ARCHS = arm64/' \
+		../qtbase/mkspecs/macx-ios-clang/qmake.conf
+	$qtConfigure -prefix "$baseInstallDir/$simulatorSdk" -sdk "$simulatorSdk"
+	make --silent -j$makeThreads || exit 1
+
+	echo 'Merge Qt simulator libs'
+	for lib in $(find . -type f -name '*.a' ! -name libQt5Bootstrap.a); do
+		installedLib="$baseInstallDir/$simulatorDir/$lib"
+		lipo -create -output "$installedLib" "$installedLib" "$lib"
+	done
+fi
+
 # TBB
 echo "Downloading TBB"
 tbbName=oneTBB
 tbbInstallPrefix="install-tbb"
-downloadGithubZip "https://github.com/oneapi-src/$tbbName/archive/refs/tags/v$tbbVersion.tar.gz"
+downloadArchive "https://github.com/oneapi-src/$tbbName/archive/refs/tags/v$tbbVersion.tar.gz"
 
 tbbPlatforms='OS64 SIMULATOR64'
 if [[ $armSimulatorEnabled ]]; then
@@ -275,7 +347,7 @@ done
 # LuaJIT
 echo "Downloading LuaJIT"
 luajitName=LuaJIT
-downloadGithubZip "https://github.com/LuaJIT/$luajitName/archive/$luaJitVersion.zip"
+downloadArchive "https://github.com/LuaJIT/$luajitName/archive/$luaJitVersion.zip"
 cCompiler=clang
 toolchainDir=$(dirname "$(xcrun --find "$cCompiler")")
 luajitInstallPrefix="install-$luajitName"
@@ -319,5 +391,5 @@ done
 popd > /dev/null
 
 echo -e "\ncleanup"
-rm -rf "$buildDir/src" "$buildDir"/{"$deviceDir","$simulatorDir"}/bin
+rm -rf "$buildDir/src"
 echo 'done'
