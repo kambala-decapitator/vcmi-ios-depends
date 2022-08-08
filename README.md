@@ -4,15 +4,20 @@ Library dependencies for [iOS fork](https://github.com/kambala-decapitator/vcmi)
 
 Current status:
 
-- dependencies of the main application (Boost, FFmpeg and SDL) target iOS 9.3, both 32- and 64-bit
-- dependencies of the Nullkiller AI (LuaJIT and TBB) target iOS 11.0, 64-bit only
-- both 64-bit simulators (Intel and ARM) are supported, the 32-bit one is not (although it's possible to build for it)
+- all dependencies target iOS 10.0
+- dependencies of the main application (Boost, FFmpeg, Qt and SDL) are available for both 32- and 64-bit
+- dependencies of the Nullkiller AI (LuaJIT and TBB) are 64-bit only, see https://github.com/kambala-decapitator/vcmi/issues/35 for background
+- both 64-bit simulators (Intel and ARM) are supported, the 32-bit one is not (although it should be possible to build for it)
 
 ## Using prebuilt package
 
 Download prebuilt libraries from [Releases](https://github.com/kambala-decapitator/vcmi-ios-depends/releases) page, unpack the archive and run `fix_install_paths.command` script (either by double-clicking it or from Terminal).
 
-If you move the unpacked directory later, you also need to run the script.
+When configuring VCMI for iOS, pass `CMAKE_PREFIX_PATH` pointing to the directory of device or simulator. For example, when configuring for device you'd pass:
+
+    -D CMAKE_PREFIX_PATH=~/Downloads/vcmi-ios-depends/build/iphoneos
+
+If you move the unpacked directory later, you also need to run the script, as it fixes absolute paths in Boost's CMake config files.
 
 The prebuilt packages are created with GitHub Actions.
 
@@ -26,4 +31,4 @@ Make sure that `xcodebuild` command is available. If it's not, use either of the
 - use `xcode-select` utility to set Xcode path: for example, `sudo xcode-select -s /Applications/Xcode.app`
 - set `DEVELOPER_DIR` environment variable pointing to Xcode path: for example, `export DEVELOPER_DIR=/Applications/Xcode.app`
 
-Clone this repository with submodules. Then simply run `./build_depends.sh` and wait, the result will appear in `build` directory. On my Mac mini 2018 with 6-core Intel i5 3 GHz the process takes about 20 minutes.
+Clone this repository with submodules. Then simply run `./build_depends.sh` and wait, the result will appear in `build` directory.
