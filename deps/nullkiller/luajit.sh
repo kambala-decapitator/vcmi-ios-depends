@@ -22,7 +22,7 @@ for sdk in "$deviceSdk" "$simulatorSdk"; do
 	fi
 	for arch in $archs; do
 		echo -e "\nbuild $luajitName for $sdk-$arch"
-		if [[ "$arch" == arm64 ]]; then
+		if [[ "$sdk" == "$deviceSdk" || "$arch" == x86_64 ]]; then
 			installDir="$baseInstallDir/$sdk"
 		else
 			installDir="$(pwd)/$luajitInstallPrefix-$sdk-$arch"
@@ -39,8 +39,10 @@ for sdk in "$deviceSdk" "$simulatorSdk"; do
 	done
 done
 
-echo -e "\nMerge $luajitName simulator libs"
-for lib in $(find "$luajitInstallPrefix"*/lib -depth 1 -type f); do
-	installedLib="$baseInstallDir/$simulatorDir/lib/$(basename "$lib")"
-	lipo -create -output "$installedLib" "$installedLib" "$lib"
-done
+if [[ $armSimulatorEnabled ]]; then
+	echo -e "\nMerge $luajitName simulator libs"
+	for lib in $(find "$luajitInstallPrefix"*/lib -depth 1 -type f); do
+		installedLib="$baseInstallDir/$simulatorDir/lib/$(basename "$lib")"
+		lipo -create -output "$installedLib" "$installedLib" "$lib"
+	done
+fi
