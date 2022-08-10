@@ -11,7 +11,7 @@ Current status:
 
 ## Using prebuilt package
 
-Download prebuilt libraries from [Releases](https://github.com/kambala-decapitator/vcmi-ios-depends/releases) page, unpack the archive and run `fix_install_paths.command` script (either by double-clicking it or from Terminal).
+Download prebuilt libraries from [Releases](https://github.com/kambala-decapitator/vcmi-ios-depends/releases) page (they are created with GitHub Actions), unpack the archive and run `fix_install_paths.command` script (either by double-clicking it or from Terminal).
 
 When configuring VCMI for iOS, pass `CMAKE_PREFIX_PATH` pointing to the directory of device or simulator. For example, when configuring for device you'd pass:
 
@@ -19,7 +19,25 @@ When configuring VCMI for iOS, pass `CMAKE_PREFIX_PATH` pointing to the director
 
 If you move the unpacked directory later, you also need to run the script, as it fixes absolute paths in Boost's CMake config files.
 
-The prebuilt packages are created with GitHub Actions.
+### Note for arm Macs
+
+Qt is built on an Intel host, hence host Qt tools (MOC, UIC etc.) are x86_64. To obtain their native versions, you need to configure Qt manually and then build only those tools.
+
+1. Download and unpack [qtbase module](https://download.qt.io/official_releases/qt/5.15/5.15.5/submodules/qtbase-everywhere-opensource-src-5.15.5.tar.xz).
+2. From some build directory execute:
+
+```bash
+PATH/TO/DOWNLOADED/QTBASE/configure -opensource -confirm-license -release -no-debug-and-release -static -no-framework -nomake examples -no-compile-examples -no-freetype -no-harfbuzz -no-gif -no-ico \
+  && make --silent --jobs=$(sysctl -n hw.ncpu) sub-src-qmake_all \
+  && make --silent --jobs=$(sysctl -n hw.ncpu) --directory=src sub-bootstrap sub-moc sub-qlalr sub-rcc sub-tracegen sub-uic
+```
+
+3. The host tools will appear in `bin` directory inside your build directory. Copy them to either:
+
+- both `build/iphoneos/bin` and `build/iphonesimulator/bin` directories of the prebuilt package
+- some directory on your machine and symlink all tools to both `build/iphoneos/bin` and `build/iphonesimulator/bin` directories of the prebuilt package
+
+4. You can safely delete build directory and Qt directory.
 
 ## Building from source
 
