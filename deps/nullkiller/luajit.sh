@@ -46,3 +46,9 @@ if [[ $armSimulatorEnabled ]]; then
 		lipo -create -output "$installedLib" "$installedLib" "$lib"
 	done
 fi
+
+echo -e "\nMerge $luajitName prebuilt armv7 lib"
+luajitLibName='libluajit-5.1.a'
+curl -LO "https://github.com/kambala-decapitator/vcmi-ios-depends/releases/download/LuaJIT-armv7/$luajitLibName"
+installedLib="$baseInstallDir/$deviceDir/lib/$luajitLibName"
+lipo -create -output "$installedLib" "$installedLib" "$luajitLibName"
