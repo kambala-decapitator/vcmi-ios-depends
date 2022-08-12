@@ -13,6 +13,12 @@ cd "$tbbName-"*
 patch -p1 < "$repoRootDir/patches/tbb-armv7.patch" || exit 1
 cd ..
 
+if [[ $hasNinja ]]; then
+	generator='Ninja'
+else
+	cmakeBuildOptions="-- -j$makeThreads"
+fi
+
 tbbPlatforms='OS OS64 SIMULATOR64'
 if [[ $armSimulatorEnabled ]]; then
 	tbbPlatforms+=' SIMULATORARM64'
@@ -39,18 +45,19 @@ for platform in $tbbPlatforms ; do
 	tbbBuildDir="build-tbb-$platform"
 	echo -e "\nbuild TBB for platform $platform"
 	cmake -S "$tbbName-"* -B "$tbbBuildDir" \
+		${generator:+ -G "$generator"} \
 		-DTBB_TEST=OFF \
 		-DTBBMALLOC_BUILD=OFF \
 		-DCMAKE_BUILD_TYPE=Release \
 		-DCMAKE_INSTALL_PREFIX="$tbbInstallDir" \
-		-DCMAKE_TOOLCHAIN_FILE="$repoRootDir/ios-cmake/ios.toolchain.cmake" \
+		--toolchain "$repoRootDir/ios-cmake/ios.toolchain.cmake" \
 		-DPLATFORM="$platform" \
 		${archs:+ -DARCHS="$archs"} \
 		-DDEPLOYMENT_TARGET="$mainDeploymentTarget" \
 		-DENABLE_BITCODE=OFF \
 		-DENABLE_ARC=ON \
 		-DENABLE_VISIBILITY=ON \
-	&& cmake --build "$tbbBuildDir" --target install -- -j$makeThreads \
+	&& cmake --build "$tbbBuildDir" --target install $cmakeBuildOptions \
 		|| exit 1
 done
 

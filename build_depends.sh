@@ -19,6 +19,10 @@ if [[ $xcodeMajorVersion -ge 12 ]]; then
 	armSimulatorEnabled=1
 fi
 
+if [[ "$(which ninja)" ]]; then
+	hasNinja=1
+fi
+
 buildDir='build'
 deviceSdk='iphoneos'
 simulatorSdk='iphonesimulator'
