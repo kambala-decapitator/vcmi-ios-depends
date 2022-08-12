@@ -4,9 +4,7 @@ Library dependencies for [iOS fork](https://github.com/kambala-decapitator/vcmi)
 
 Current status:
 
-- all dependencies target iOS 10.0
-- dependencies of the main application (Boost, FFmpeg, Qt and SDL) are available for both 32- and 64-bit
-- dependencies of the Nullkiller AI (LuaJIT and TBB) are 64-bit only, see https://github.com/kambala-decapitator/vcmi/issues/35 for background
+- all dependencies target iOS 10.0 and are available for both 32- and 64-bit
 - both 64-bit simulators (Intel and ARM) are supported, the 32-bit one is not (although it should be possible to build for it)
 
 ## Using prebuilt package
