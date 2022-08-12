@@ -7,20 +7,33 @@ tbbName=oneTBB
 tbbInstallPrefix="install-tbb"
 downloadArchive "https://github.com/oneapi-src/$tbbName/archive/refs/tags/v$tbbVersion.tar.gz"
 
-tbbPlatforms='OS64 SIMULATOR64'
+# TODO: remove when https://github.com/oneapi-src/oneTBB/pull/860 is merged
+echo -e "\nPatching TBB"
+cd "$tbbName-"*
+patch -p1 < "$repoRootDir/patches/tbb-armv7.patch" || exit 1
+cd ..
+
+tbbPlatforms='OS OS64 SIMULATOR64'
 if [[ $armSimulatorEnabled ]]; then
 	tbbPlatforms+=' SIMULATORARM64'
 fi
 for platform in $tbbPlatforms ; do
 	case $platform in
+	OS)
+		tbbInstallDir="$tbbInstallPrefix-armv7"
+		archs='armv7'
+		;;
 	OS64)
 		tbbInstallDir="$baseInstallDir/$deviceDir"
+		archs=
 		;;
 	SIMULATOR64)
 		tbbInstallDir="$baseInstallDir/$simulatorDir"
+		archs=
 		;;
 	SIMULATORARM64)
 		tbbInstallDir="$tbbInstallPrefix-arm64-simulator"
+		archs=
 		;;
 	esac
 	tbbBuildDir="build-tbb-$platform"
@@ -29,20 +42,28 @@ for platform in $tbbPlatforms ; do
 		-DTBB_TEST=OFF \
 		-DTBBMALLOC_BUILD=OFF \
 		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_INSTALL_PREFIX="$tbbInstallDir" \
 		-DCMAKE_TOOLCHAIN_FILE="$repoRootDir/ios-cmake/ios.toolchain.cmake" \
 		-DPLATFORM="$platform" \
+		${archs:+ -DARCHS="$archs"} \
 		-DDEPLOYMENT_TARGET="$mainDeploymentTarget" \
 		-DENABLE_BITCODE=OFF \
 		-DENABLE_ARC=ON \
 		-DENABLE_VISIBILITY=ON \
-	&& cmake --build "$tbbBuildDir" -- -j$makeThreads \
-	&& cmake --install "$tbbBuildDir" --prefix "$tbbInstallDir" \
+	&& cmake --build "$tbbBuildDir" --target install -- -j$makeThreads \
 		|| exit 1
 done
 
-echo 'Merge TBB simulator libs'
-for lib in $(find "$tbbInstallPrefix"*/lib -depth 1 -type f); do
-	installedLib="$baseInstallDir/$simulatorDir/lib/$(basename "$lib")"
-	lipo -create -output "$installedLib" "$installedLib" "$lib"
+echo -e "\nMerge TBB libs"
+for arch in armv7 arm64 ; do
+	if [[ "$arch" == armv7 ]]; then
+		destDir="$deviceDir"
+	else
+		destDir="$simulatorDir"
+	fi
+	for lib in $(find "$tbbInstallPrefix-$arch"*/lib -depth 1 -type f); do
+		installedLib="$baseInstallDir/$destDir/lib/$(basename "$lib")"
+		lipo -create -output "$installedLib" "$installedLib" "$lib"
+	done
 done
 echo
