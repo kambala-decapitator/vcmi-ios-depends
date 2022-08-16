@@ -5,6 +5,13 @@ luaJitVersion='50936d784474747b4569d988767f1b5bab8bb6d0'
 echo "Downloading LuaJIT"
 luajitName=LuaJIT
 downloadArchive "https://github.com/LuaJIT/$luajitName/archive/$luaJitVersion.zip"
+
+echo "Apply patches"
+# give dylib extension to files
+sed -i '' 's/ifeq (Darwin,$(TARGET_SYS))/ifeq (iOS,$(TARGET_SYS))/' "$luajitName"-*/Makefile
+# don't append /lib to rpath, must be just @rpath/<lib>
+sed -i '' 's|/$(or $(MULTILIB),lib)||' "$luajitName"-*/src/Makefile
+
 cCompiler=clang
 toolchainDir=$(dirname "$(xcrun --find "$cCompiler")")
 luajitInstallPrefix="install-$luajitName"
@@ -29,7 +36,8 @@ for sdk in "$deviceSdk" "$simulatorSdk"; do
 		fi
 		makeCommand="make -C $luajitName-* -j$makeThreads TARGET_SYS=iOS"
 		$makeCommand \
-			BUILDMODE=static \
+			BUILDMODE=dynamic \
+			PREFIX='@rpath' \
 			DEFAULT_CC="$cCompiler" \
 			CROSS="$toolchainDir/" \
 			TARGET_FLAGS="-isysroot '$sdkPath' -target $arch-apple-ios$mainDeploymentTarget$targetSuffix" \
@@ -48,7 +56,7 @@ if [[ $armSimulatorEnabled ]]; then
 fi
 
 echo -e "\nMerge $luajitName prebuilt armv7 lib"
-luajitLibName='libluajit-5.1.a'
+luajitLibName='libluajit-5.1.2.1.0.dylib'
 curl -LO "https://github.com/kambala-decapitator/vcmi-ios-depends/releases/download/LuaJIT-armv7/$luajitLibName"
 installedLib="$baseInstallDir/$deviceDir/lib/$luajitLibName"
 lipo -create -output "$installedLib" "$installedLib" "$luajitLibName"
