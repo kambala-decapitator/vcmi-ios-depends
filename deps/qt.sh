@@ -12,7 +12,7 @@ qtPatchesRepoDir='5.15.5'
 
 git clone --no-checkout --depth 1 --sparse "https://github.com/kambala-decapitator/$qtPatchesRepo.git"
 cd "$qtPatchesRepo"
-git sparse-checkout add "/$qtPatchesRepoDir/*"
+git sparse-checkout add "$qtPatchesRepoDir"
 git checkout
 cd ..
 
