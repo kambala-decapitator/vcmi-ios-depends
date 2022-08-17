@@ -1,6 +1,6 @@
 # VCMI dependencies for iOS
 
-Library dependencies for [iOS fork](https://github.com/kambala-decapitator/vcmi).
+Library dependencies for [iOS platform](https://github.com/vcmi/vcmi).
 
 Current status:
 
