@@ -44,7 +44,7 @@ baseInstallDir=$(cd "$currentDir/.." ; pwd)
 . "$repoRootDir/deps/qt.sh"
 
 . "$repoRootDir/deps/nullkiller/tbb.sh"
-. "$repoRootDir/deps/nullkiller/luajit.sh"
+. "$repoRootDir/deps/scripting/luajit.sh"
 
 popd > /dev/null
 
