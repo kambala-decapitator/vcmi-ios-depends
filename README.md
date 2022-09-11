@@ -1,5 +1,7 @@
 # VCMI dependencies for iOS
 
+Repo has moved to https://github.com/vcmi/vcmi-ios-deps
+
 Library dependencies for iOS platform of [VCMI project](https://github.com/vcmi/vcmi).
 
 Current status:
